@@ -15,6 +15,7 @@
  * 
  * Known issues:
  * 
+ * Shape of covers in wings is parallelogram, not trapezium! -- requires 3D transforms / perspective()
  * Animation is not correct in IE (7 & 8)
  * Alignment within container is not correct in IE (7 & 8)
  * 
@@ -37,6 +38,7 @@
 			trigger: 'click',
 			duration: 600,
 			currentItemZoom: 0.3,
+			skew: 0.2,
 			center: true, // If false, element's base position isn't touched in any way
 			recenter: true, // If false, the parent element's position doesn't get animated while items change
 			autoAdvance: false, // If a number, the nex() function is called automatically once every [value] ms
@@ -178,7 +180,7 @@
 			if (this.dummy !== null) {
 				// I don't understand how this works, but it does!
 				this.dummy.css(this.props[2], (from < to ? (2 - this.items.length) : (this.items.length * -2) - 1) * self.itemSize);
-				this.dummy.css(this.transformProperty, 'matrix(1,'+ (from > to ? -0.2 : 0.2) +',0,1,0,0) scale(' + state + ')');
+				this.dummy.css(this.transformProperty, 'matrix(' + state + ','+ (o.skew * (from > to ? -1 : 1)) +',0,' + state + ',0,0)');
 			}
 			this.items.each(function(i) {
 				var side = (((i == to) && (from < to)) || (i > to)) ? 'left' : 'right',
@@ -187,7 +189,7 @@
 					scale = (self.transformProperty && (i === transferring)) ? (state === 1 ? 1 : 1 - state) : (1+((1-mod)*o.currentItemZoom));
 				css[self.props[2]] = ((side === 'right' ? -1 : 1) * mod - i + 1) * self.itemSize;
 				if (self.transformProperty) {
-					css[self.transformProperty] = 'matrix(1,' + (mod * (side == 'right' ? -0.2 : 0.2)) + ',0,1,0,0) scale(' + scale + ')';
+					css[self.transformProperty] = 'matrix(' + scale + ',' + (mod * o.skew * (side == 'right' ? -1 : 1)) + ',0,' + scale + ',0,0)';
 				} else {
 					$.extend(css, {
 						width: self.itemWidth * scale,
