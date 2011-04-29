@@ -10,15 +10,20 @@
  * jQuery UI (this version tested with 1.8.9)
  * Sylvester.js (for transforms with IE, required by TransformIE.js)
  * TransformIE.js (for transforms with IE)
- * jQuery.support.cssProperty.js (for detection of support for transform css property)
+ * jQuery cssProperty support plugin (for detection of support for transform css property)
+ * jQuery mousewheel plugin (if mousewheel support is required)
+ * 
+ * Known issues:
+ * 
+ * Animation is not correct in IE (7 & 8)
+ * Alignment within container is not correct in IE (7 & 8)
+ * 
+ * TODO
+ * Add options for animating element being transferred (and dummy element):
+ * 'shrink' (as current), 'fade' or 'none' (good if there are lots of items)
  */
 
 (function($) {
-
-	// Cache browser support for transforms.  This will be true unless the 
-	// browser is opera, or 
-	// TODO Improve so that this is true for IE only when TransformIE is present
-	//var supportsTransforms = !$.browser.opera && !($.browser.mozilla && (parseFloat($.browser.version.replace(/^(\d+\.\d*).*$/, '$1')) <= 1.9));
 
 	$.easing.easeOutQuint = function (x, t, b, c, d) {
 		return c*((t=t/d-1)*t*t*t*t + 1) + b;
@@ -36,14 +41,15 @@
 			recenter: true, // If false, the parent element's position doesn't get animated while items change
 			autoAdvance: false, // If a number, the nex() function is called automatically once every [value] ms
 			pauseOnHover: true, // If false, don't pause the auto-advance on mouseover; ignored if autoAdvance is false
-			refreshOnWindowResize: true // If false, don't automatically refresh when the window is resized
+			refreshOnWindowResize: true, // If false, don't automatically refresh when the window is resized
+			mousewheelSupport: true // If false, wheel is not supported
 		},
 		
 		_create: function() {
 			var self = this, o = this.options;
 			this.items = $(o.items, this.element);
 			this.props = o.orientation == 'vertical' ? ['height', 'Height', 'top', 'Top'] : ['width', 'Width', 'left', 'Left'];
-			this.transformProperty = $.support.cssProperty('transform', true);
+			this.transformProperty = ($.browser.msie && $.isPlainObject(Transformie)) ? 'transform' : $.support.cssProperty('transform', true);
 			this.itemSize = (0.5 + (parseInt(this.items.first().css('margin'+this.props[3]), 10) || 0) / this.items[0]['offset'+this.props[1]]) * this.items.innerWidth();
 			this.itemWidth = this.items.width();
 			this.itemHeight = this.items.height();
@@ -79,6 +85,18 @@
 			if (o.refreshOnWindowResize) {
 				$(window).resize(function() {
 					self._recenter();
+				});
+			}
+
+			// Setup mouse wheel support
+			if (o.mousewheelSupport) {
+				this.element.mousewheel(function(event, delta) {
+					if (delta > 0) {
+						self.next();
+					} else if (delta < 0) {
+						self.previous();
+					}
+					event.preventDefault();//stop any default behaviour
 				});
 			}
 		},
