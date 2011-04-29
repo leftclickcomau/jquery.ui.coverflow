@@ -40,7 +40,7 @@
 			this.items = $(o.items, this.element);
 			this.props = o.orientation == 'vertical' ? ['height', 'Height', 'top', 'Top'] : ['width', 'Width', 'left', 'Left'];
 			this.transformProp = ($.browser.safari ? 'webkit' : 'Moz')+'Transform';
-			this.itemSize = 0.4 * this.items.innerWidth();
+			this.itemSize = (0.5 + (parseInt(this.items.first().css('margin'+this.props[3]), 10) || 0) / this.items[0]['offset'+this.props[1]]) * this.items.innerWidth();
 			this.itemWidth = this.items.width();
 			this.itemHeight = this.items.height();
 			this.current = (o.item === 'middle') ? Math.floor(this.items.size() / 2) : o.item; //initial item
@@ -101,8 +101,9 @@
 		select: function(item, noPropagation) {
 			var self = this, 
 				from = Math.abs(self.previous-self.current) <= 1 ? self.previous : self.current+(self.previous < self.current ? -1 : 1),
-				animation = {};
+				css = {};
 
+			// Update the internal markers
 			this.previous = this.current;
 			this.current = !isNaN(parseInt(item,10)) ? parseInt(item,10) : this.items.index(item);
 
@@ -111,16 +112,13 @@
 				return false
 			}
 
-			// 1. Stop the previous animation
-			// 2. Animate the parent's left/top property so the current item is in the center
-			// 3. Use our custom coverflow animation which animates the item
 			// Trigger the 'select' event/callback
 			if (!noPropagation) {
 				this._trigger('select', null, this._uiHash());
 			}
 
-			animation[this.props[2]] = this._getElementPosition();
-			this.element.stop().animate(animation, {
+			css[this.props[2]] = this._getElementPosition();
+			this.element.stop().animate(css, {
 				duration: this.options.duration,
 				easing: 'easeOutQuint',
 				step: function(now, fx) { 
