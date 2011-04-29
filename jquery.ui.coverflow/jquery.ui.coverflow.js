@@ -24,9 +24,9 @@
 		options: {
 			items: '> *',
 			orientation: 'horizontal',
-			item: 'middle',
+			item: 0,
 			trigger: 'click',
-			duration: 'normal',
+			duration: 600,
 			currentItemZoom: 0.3,
 			center: true, // If false, element's base position isn't touched in any way
 			recenter: true, // If false, the parent element's position doesn't get animated while items change
@@ -43,34 +43,34 @@
 			this.itemSize = (0.5 + (parseInt(this.items.first().css('margin'+this.props[3]), 10) || 0) / this.items[0]['offset'+this.props[1]]) * this.items.innerWidth();
 			this.itemWidth = this.items.width();
 			this.itemHeight = this.items.height();
-			this.currentIndex = (o.item === 'middle') ? Math.floor(this.items.size() / 2) : o.item; //initial item
+			this.currentIndex = o.item; //initial item
 			this.previousIndex = this.currentIndex;
+			this.targetIndex = this.currentIndex;
 			this.autoAdvanceInterval = null;
+			this.dummy = null;
 
 			// Bind click events on individual items
 			this.items.bind(o.trigger, function() {
 				self.select(this);
 			});
 
-			// Center the actual parent's left side within it's parent
+			// Initialise the display
+			this._completeAdjustElements();
 			this._recenter();
 
-			// Jump to the first item
-			this._refresh(1, this.currentIndex, this.currentIndex);
-
+			// Setup auto-advance and/or pause-on-hover
 			if (o.autoAdvance > 0) {
 				if (o.pauseOnHover) {
-					// Control the auto advance timer by mouse events
 					this.element.hover(function() {
 						self.pauseAutoAdvance();
 					}, function() {
 						self.startAutoAdvance();
 					});
 				}
-				// Initially start the auto advance timer
 				this.startAutoAdvance();
 			}
 
+			// Setup window resize adjustment
 			if (o.refreshOnWindowResize) {
 				$(window).resize(function() {
 					self._recenter();
@@ -102,37 +102,42 @@
 			this.select((this.currentIndex + 1) % this.items.size(), noPropagation);
 		},
 
-		select: function(item, noPropagation) {
+		select: function(item, noPropagation, noStop) {
 			var self = this, 
 				from = self.currentIndex,
 				css = {};
 
 			// Update the internal markers
 			this.previousIndex = this.currentIndex;
-			this.currentIndex = !isNaN(parseInt(item,10)) ? parseInt(item,10) : this.items.index(item);
+			this.targetIndex = !isNaN(parseInt(item,10)) ? parseInt(item,10) : this.items.index(item);
+			this.currentIndex += (this.targetIndex > this.currentIndex) ? 1 : -1;
 
 			// Don't animate when selecting the same item
-			if (this.previousIndex === this.currentIndex) {
-				return false
-			}
-
-			// Trigger the 'select' event/callback
-			if (!noPropagation) {
-				this._trigger('select', null, this._uiHash());
-			}
-
-			css[this.props[2]] = this._getElementPosition();
-			this.element.stop().animate(css, {
-				duration: this.options.duration,
-				easing: 'easeOutQuint',
-				step: function(now, fx) {
-					self._refresh(fx.state, from, self.currentIndex);
-				},
-				complete: function() {
-					self._adjustElements();
-					self._recenter();
+			if (this.previousIndex !== this.currentIndex) {
+				// Trigger the 'select' event/callback
+				if (!noPropagation) {
+					this._trigger('select', null, this._uiHash());
 				}
-			});
+				css[this.props[2]] = this._getElementPosition();
+				if (!noStop) {
+					this.element.stop();
+				}
+				this._beginAdjustElements();
+				this.element.animate(css, {
+					duration: this.options.duration / Math.abs(this.previousIndex - this.targetIndex),
+					easing: 'easeOutQuint',
+					step: function(now, fx) {
+						self._refresh(fx.state, from, self.currentIndex);
+					},
+					complete: function() {
+						self._completeAdjustElements();
+						self._recenter();
+						if (self.currentIndex !== self.targetIndex) {
+							self.select(self.targetIndex, noPropagation, true);
+						}
+					}
+				});
+			}
 		},
 
 		_refresh: function(state, from, to) {
@@ -140,12 +145,17 @@
 				offset = null, 
 				o = this.options, 
 				transferring = (from < to ? 0 : this.items.length - 1);
+			if (this.dummy !== null) {
+				// I don't understand how this works, but it does!
+				this.dummy.css(this.props[2], (from < to ? (2 - this.items.length) : (this.items.length * -2) - 1) * self.itemSize);
+				this.dummy.css(this.transformProp, 'matrix(1,'+ (from > to ? -0.2 : 0.2) +',0,1,0,0) scale(' + state + ')');
+			}
 			this.items.each(function(i) {
 				var side = (((i == to) && (from < to)) || (i > to)) ? 'left' : 'right',
 					mod = (i === to) ? (1 - state) : ((i === from) ? state : 1),
 					css = { zIndex: self.items.length + (side == 'left' ? (to - i) : (i - to)) },
 					scale = (supportsTransforms && (i === transferring)) ? (state === 1 ? 1 : 1 - state) : (1+((1-mod)*o.currentItemZoom));
-				css[self.props[2]] = ((side === 'right' ? -1 : 1) * mod - i) * self.itemSize;
+				css[self.props[2]] = ((side === 'right' ? -1 : 1) * mod - i + 1) * self.itemSize;
 				if (supportsTransforms) {
 					css[self.transformProp] = 'matrix(1,' + (mod * (side == 'right' ? -0.2 : 0.2)) + ',0,1,0,0) scale(' + scale + ')';
 				} else {
@@ -168,19 +178,32 @@
 			return (
 				(this.options.center ? this.element.parent()[0]['offset'+this.props[1]]/2 - this.itemSize : 0) // Center the items container
 				- (this.options.center ? parseInt(this.element.css('padding'+this.props[3]),10) || 0 : 0) // Subtract the padding of the items container
-				- (this.options.recenter ? this.currentIndex * this.itemSize : 0)
+				- (this.options.recenter ? (this.currentIndex + 1) * this.itemSize : 0)
 			);
 		},
 
-		_adjustElements: function() {
+		_beginAdjustElements: function() {
+			this.dummy = (this.currentIndex > this.items.length / 2) ? 
+				this.items.first().clone() : this.items.last().clone();
+			$(this.element).append(this.dummy);
+		},
+
+		_completeAdjustElements: function() {
 			var midpoint = this.items.length / 2;
+			if (this.dummy !== null) {
+				this.dummy.remove();
+			}
 			while (this.currentIndex > midpoint) {
 				$(this.element).append(this.items[0]);
-				this.currentIndex += (this.currentIndex < midpoint) ? 1 : -1; // Adjust the currentIndex position because the array has wrapped
+				this.currentIndex--;
+				this.targetIndex--;
+				this.previousIndex--;
 			}
 			while (this.currentIndex < midpoint - 1) {
 				$(this.element).prepend(this.items[this.items.length - 1]);
-				this.currentIndex += (this.currentIndex < midpoint) ? 1 : -1; // Adjust the currentIndex position because the array has wrapped
+				this.currentIndex++;
+				this.targetIndex++;
+				this.previousIndex++;
 			}
 			this.items = $(this.options.items, this.element);
 			this._refresh(1, this.currentIndex, this.currentIndex);
