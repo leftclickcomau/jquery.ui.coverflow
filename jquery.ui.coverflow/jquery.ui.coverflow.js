@@ -43,8 +43,8 @@
 			this.itemSize = (0.5 + (parseInt(this.items.first().css('margin'+this.props[3]), 10) || 0) / this.items[0]['offset'+this.props[1]]) * this.items.innerWidth();
 			this.itemWidth = this.items.width();
 			this.itemHeight = this.items.height();
-			this.current = (o.item === 'middle') ? Math.floor(this.items.size() / 2) : o.item; //initial item
-			this.previous = this.current;
+			this.currentIndex = (o.item === 'middle') ? Math.floor(this.items.size() / 2) : o.item; //initial item
+			this.previousIndex = this.currentIndex;
 			this.autoAdvanceInterval = null;
 
 			// Bind click events on individual items
@@ -56,7 +56,7 @@
 			this._recenter();
 
 			// Jump to the first item
-			this._refresh(1, this.current, this.current);
+			this._refresh(1, this.currentIndex, this.currentIndex);
 
 			if (o.autoAdvance > 0) {
 				if (o.pauseOnHover) {
@@ -90,25 +90,29 @@
 			this.autoAdvanceInterval = null;
 		},
 
-		getCurrent: function() {
-			return this.current;
+		getCurrentIndex: function() {
+			return this.currentIndex;
+		},
+
+		previous: function(noPropagation) {
+			this.select((this.currentIndex + this.items.size() - 1) % this.items.size(), noPropagation);
 		},
 
 		next: function(noPropagation) {
-			this.select((this.getCurrent() + 1) % this.items.size(), noPropagation);
+			this.select((this.currentIndex + 1) % this.items.size(), noPropagation);
 		},
 
 		select: function(item, noPropagation) {
 			var self = this, 
-				from = Math.abs(self.previous-self.current) <= 1 ? self.previous : self.current+(self.previous < self.current ? -1 : 1),
+				from = self.currentIndex,
 				css = {};
 
 			// Update the internal markers
-			this.previous = this.current;
-			this.current = !isNaN(parseInt(item,10)) ? parseInt(item,10) : this.items.index(item);
+			this.previousIndex = this.currentIndex;
+			this.currentIndex = !isNaN(parseInt(item,10)) ? parseInt(item,10) : this.items.index(item);
 
 			// Don't animate when selecting the same item
-			if (this.previous == this.current) {
+			if (this.previousIndex === this.currentIndex) {
 				return false
 			}
 
@@ -121,8 +125,8 @@
 			this.element.stop().animate(css, {
 				duration: this.options.duration,
 				easing: 'easeOutQuint',
-				step: function(now, fx) { 
-					self._refresh(fx.state, from, self.current); 
+				step: function(now, fx) {
+					self._refresh(fx.state, from, self.currentIndex);
 				},
 				complete: function() {
 					self._adjustElements();
@@ -164,28 +168,28 @@
 			return (
 				(this.options.center ? this.element.parent()[0]['offset'+this.props[1]]/2 - this.itemSize : 0) // Center the items container
 				- (this.options.center ? parseInt(this.element.css('padding'+this.props[3]),10) || 0 : 0) // Subtract the padding of the items container
-				- (this.options.recenter ? this.current * this.itemSize : 0)
+				- (this.options.recenter ? this.currentIndex * this.itemSize : 0)
 			);
 		},
 
 		_adjustElements: function() {
 			var midpoint = this.items.length / 2;
-			while (this.current > midpoint) {
+			while (this.currentIndex > midpoint) {
 				$(this.element).append(this.items[0]);
-				this.current += (this.current < midpoint) ? 1 : -1; // Adjust the current position because the array has wrapped
+				this.currentIndex += (this.currentIndex < midpoint) ? 1 : -1; // Adjust the currentIndex position because the array has wrapped
 			}
-			while (this.current < midpoint - 1) {
+			while (this.currentIndex < midpoint - 1) {
 				$(this.element).prepend(this.items[this.items.length - 1]);
-				this.current += (this.current < midpoint) ? 1 : -1; // Adjust the current position because the array has wrapped
+				this.currentIndex += (this.currentIndex < midpoint) ? 1 : -1; // Adjust the currentIndex position because the array has wrapped
 			}
 			this.items = $(this.options.items, this.element);
-			this._refresh(1, this.current, this.current);
+			this._refresh(1, this.currentIndex, this.currentIndex);
 		},
 
 		_uiHash: function() {
 			return {
-				item: this.items[this.current],
-				value: this.current
+				item: this.items[this.currentIndex],
+				value: this.currentIndex
 			};
 		}
 	});
