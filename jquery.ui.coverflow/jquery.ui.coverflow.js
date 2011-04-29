@@ -1,4 +1,4 @@
-/*
+/*!
  * jQuery UI CoverFlow
  * Enhanced by Leftclick.com.au with auto-advance, better controls and improved maths.
  * Re-written for jQueryUI 1.8.6/jQuery core 1.4.4 by Addy Osmani with adjustments for perspective change.
@@ -10,11 +10,15 @@
  * jQuery UI (this version tested with 1.8.9)
  * Sylvester.js (for transforms with IE, required by TransformIE.js)
  * TransformIE.js (for transforms with IE)
+ * jQuery.support.cssProperty.js (for detection of support for transform css property)
  */
 
 (function($) {
-	var browserVersion = $.browser.version.replace(/^(\d+\.)(.*)$/, function() { return arguments[1] + arguments[2].replace(/\./g, ''); });
-	var supportsTransforms = !($.browser.mozilla && (parseFloat(browserVersion) <= 1.9)) && !$.browser.opera;
+
+	// Cache browser support for transforms.  This will be true unless the 
+	// browser is opera, or 
+	// TODO Improve so that this is true for IE only when TransformIE is present
+	//var supportsTransforms = !$.browser.opera && !($.browser.mozilla && (parseFloat($.browser.version.replace(/^(\d+\.\d*).*$/, '$1')) <= 1.9));
 
 	$.easing.easeOutQuint = function (x, t, b, c, d) {
 		return c*((t=t/d-1)*t*t*t*t + 1) + b;
@@ -39,7 +43,7 @@
 			var self = this, o = this.options;
 			this.items = $(o.items, this.element);
 			this.props = o.orientation == 'vertical' ? ['height', 'Height', 'top', 'Top'] : ['width', 'Width', 'left', 'Left'];
-			this.transformProp = ($.browser.safari ? 'webkit' : 'Moz')+'Transform';
+			this.transformProperty = $.support.cssProperty('transform', true);
 			this.itemSize = (0.5 + (parseInt(this.items.first().css('margin'+this.props[3]), 10) || 0) / this.items[0]['offset'+this.props[1]]) * this.items.innerWidth();
 			this.itemWidth = this.items.width();
 			this.itemHeight = this.items.height();
@@ -48,6 +52,7 @@
 			this.targetIndex = this.currentIndex;
 			this.autoAdvanceInterval = null;
 			this.dummy = null;
+			this.animating = false;
 
 			// Bind click events on individual items
 			this.items.bind(o.trigger, function() {
@@ -107,36 +112,43 @@
 				from = self.currentIndex,
 				css = {};
 
-			// Update the internal markers
-			this.previousIndex = this.currentIndex;
+			// Update the target, but only initiate the animation if not
+			// already animating
 			this.targetIndex = !isNaN(parseInt(item,10)) ? parseInt(item,10) : this.items.index(item);
-			this.currentIndex += (this.targetIndex > this.currentIndex) ? 1 : -1;
+			if (!this.animating) {
+				// Update the internal markers
+				this.animating = true;
+				this.previousIndex = this.currentIndex;
+				this.currentIndex += (this.targetIndex > this.currentIndex) ? 1 : -1;
 
-			// Don't animate when selecting the same item
-			if (this.previousIndex !== this.currentIndex) {
-				// Trigger the 'select' event/callback
-				if (!noPropagation) {
-					this._trigger('select', null, this._uiHash());
-				}
-				css[this.props[2]] = this._getElementPosition();
-				if (!noStop) {
-					this.element.stop();
-				}
-				this._beginAdjustElements();
-				this.element.animate(css, {
-					duration: this.options.duration / Math.abs(this.previousIndex - this.targetIndex),
-					easing: 'easeOutQuint',
-					step: function(now, fx) {
-						self._refresh(fx.state, from, self.currentIndex);
-					},
-					complete: function() {
-						self._completeAdjustElements();
-						self._recenter();
-						if (self.currentIndex !== self.targetIndex) {
-							self.select(self.targetIndex, noPropagation, true);
-						}
+				// Don't animate when selecting the same item or when already
+				// animating
+				if (this.previousIndex !== this.currentIndex) {
+					// Trigger the 'select' event/callback
+					if (!noPropagation) {
+						this._trigger('select', null, this._uiHash());
 					}
-				});
+					css[this.props[2]] = this._getElementPosition();
+					if (!noStop) {
+						this.element.stop();
+					}
+					this._beginAdjustElements();
+					this.element.animate(css, {
+						duration: this.options.duration / Math.abs(this.previousIndex - this.targetIndex),
+						easing: 'easeOutQuint',
+						step: function(now, fx) {
+							self._refresh(fx.state, from, self.currentIndex);
+						},
+						complete: function() {
+							self._completeAdjustElements();
+							self._recenter();
+							self.animating = false;
+							if (self.currentIndex !== self.targetIndex) {
+								self.select(self.targetIndex, noPropagation, true);
+							}
+						}
+					});
+				}
 			}
 		},
 
@@ -148,16 +160,16 @@
 			if (this.dummy !== null) {
 				// I don't understand how this works, but it does!
 				this.dummy.css(this.props[2], (from < to ? (2 - this.items.length) : (this.items.length * -2) - 1) * self.itemSize);
-				this.dummy.css(this.transformProp, 'matrix(1,'+ (from > to ? -0.2 : 0.2) +',0,1,0,0) scale(' + state + ')');
+				this.dummy.css(this.transformProperty, 'matrix(1,'+ (from > to ? -0.2 : 0.2) +',0,1,0,0) scale(' + state + ')');
 			}
 			this.items.each(function(i) {
 				var side = (((i == to) && (from < to)) || (i > to)) ? 'left' : 'right',
 					mod = (i === to) ? (1 - state) : ((i === from) ? state : 1),
 					css = { zIndex: self.items.length + (side == 'left' ? (to - i) : (i - to)) },
-					scale = (supportsTransforms && (i === transferring)) ? (state === 1 ? 1 : 1 - state) : (1+((1-mod)*o.currentItemZoom));
+					scale = (self.transformProperty && (i === transferring)) ? (state === 1 ? 1 : 1 - state) : (1+((1-mod)*o.currentItemZoom));
 				css[self.props[2]] = ((side === 'right' ? -1 : 1) * mod - i + 1) * self.itemSize;
-				if (supportsTransforms) {
-					css[self.transformProp] = 'matrix(1,' + (mod * (side == 'right' ? -0.2 : 0.2)) + ',0,1,0,0) scale(' + scale + ')';
+				if (self.transformProperty) {
+					css[self.transformProperty] = 'matrix(1,' + (mod * (side == 'right' ? -0.2 : 0.2)) + ',0,1,0,0) scale(' + scale + ')';
 				} else {
 					$.extend(css, {
 						width: self.itemWidth * scale,
