@@ -3,6 +3,13 @@
  * Enhanced by Leftclick.com.au with auto-advance, better controls and improved maths.
  * Re-written for jQueryUI 1.8.6/jQuery core 1.4.4 by Addy Osmani with adjustments for perspective change.
  * Original Component: Paul Bakaus for jQueryUI 1.7 series.
+ * 
+ * Requirements:
+ * 
+ * jQuery (this version tested with 1.5)
+ * jQuery UI (this version tested with 1.8.9)
+ * Sylvester.js (for transforms with IE, required by TransformIE.js)
+ * TransformIE.js (for transforms with IE)
  */
 
 (function($) {
