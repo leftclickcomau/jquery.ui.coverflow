@@ -136,14 +136,14 @@
 			// already animating
 			this.targetIndex = !isNaN(parseInt(item,10)) ? parseInt(item,10) : this.items.index(item);
 			if (!this.animating) {
-				// Update the internal markers
-				this.animating = true;
-				this.previousIndex = this.currentIndex;
-				this.currentIndex += (this.targetIndex > this.currentIndex) ? 1 : -1;
-
 				// Don't animate when selecting the same item or when already
 				// animating
-				if (this.previousIndex !== this.currentIndex) {
+				if (this.currentIndex !== this.targetIndex) {
+					// Update the internal markers
+					this.animating = true;
+					this.previousIndex = this.currentIndex;
+					this.currentIndex += (this.targetIndex > this.currentIndex) ? 1 : -1;
+
 					// Trigger the 'select' event/callback
 					if (!noPropagation) {
 						this._trigger('select', null, this._uiHash());
