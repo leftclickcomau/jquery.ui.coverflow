@@ -115,11 +115,7 @@
 			if (o.mousewheelSupport) {
 				this.element.mousewheel(function(event, delta) {
 					// TODO Don't act immediately -- Check for single wheel tick vs. long wheel slide
-					if (delta > 0) {
-						self.select(self.targetIndex + 1);
-					} else if (delta < 0) {
-						self.select(self.targetIndex - 1);
-					}
+					self.select(self.targetIndex - Math.abs(delta) / delta);
 					event.preventDefault();//stop any default behaviour
 				});
 			}
