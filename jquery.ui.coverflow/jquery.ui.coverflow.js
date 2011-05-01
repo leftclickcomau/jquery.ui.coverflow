@@ -20,8 +20,29 @@
  * Alignment within container is not correct in IE (7 & 8)
  * 
  * TODO
- * Add options for animating element being transferred (and dummy element):
- * 'shrink' (as current), 'fade' or 'none' (good if there are lots of items)
+ * 
+ * Add options for animating the item being transferred from one end of the
+ * coverflow to the other:
+ * 'shrink'
+ * 'fade'
+ * 'both' (as current)
+ * 'none' (good if there are lots of items)
+ * 
+ * Add support for <canvas> element.
+ * 
+ * Add support for 3D transforms (using perspective).  Safari on Mac supports
+ * this already with CSS, others via <canvas> element.
+ * 
+ * Add options for transforming the items using different methods:
+ * 'accuracy' (use the most accurate available method via feature detection,
+ *     i.e. prefer <canvas> where 3D CSS transforms are not available)
+ * 'speed' (use the fastest available method via feature detection, 
+ *     i.e. prefer 2D CSS transforms over <canvas>)
+ * 'css' (use only the CSS-based transform methods, if it is available,
+ *     i.e. never use <canvas>)
+ * 'canvas' (use only the <canvas> element, if it is available, 
+ *     i.e. never use CSS transforms)
+ * 'none' (don't transform elements, use the flat scaled method only)
  */
 
 (function($) {
@@ -93,10 +114,11 @@
 			// Setup mouse wheel support
 			if (o.mousewheelSupport) {
 				this.element.mousewheel(function(event, delta) {
+					// TODO Don't act immediately -- Check for single wheel tick vs. long wheel slide
 					if (delta > 0) {
-						self.next();
+						self.select(self.targetIndex + 1);
 					} else if (delta < 0) {
-						self.previous();
+						self.select(self.targetIndex - 1);
 					}
 					event.preventDefault();//stop any default behaviour
 				});
@@ -181,6 +203,7 @@
 				// I don't understand how this works, but it does!
 				this.dummy.css(this.props[2], (from < to ? (2 - this.items.length) : (this.items.length * -2) - 1) * self.itemSize);
 				this.dummy.css(this.transformProperty, 'matrix(' + state + ','+ (o.skew * (from > to ? -1 : 1)) +',0,' + state + ',0,0)');
+				this.dummy.css('opacity', state);
 			}
 			this.items.each(function(i) {
 				var side = (((i == to) && (from < to)) || (i > to)) ? 'left' : 'right',
@@ -196,6 +219,9 @@
 						height: self.itemHeight * scale,
 						top: -((self.itemHeight * (scale - 1)) / 2)
 					});
+				}
+				if (i === transferring) {
+					css['opacity'] = (state === 1 ? 1 : 1 - state);
 				}
 				$(this).css(css);
 			});
