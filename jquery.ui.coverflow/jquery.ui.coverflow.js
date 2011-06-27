@@ -19,7 +19,7 @@
  * Animation is not correct in IE (7 & 8)
  * Alignment within container is not correct in IE (7 & 8)
  * 
- * TODO
+ * TODO:
  * 
  * Add options for animating the item being transferred from one end of the
  * coverflow to the other:
